@@ -20,171 +20,156 @@
 
 #pragma once
 
-#ifndef TARGET_BOARD_IDENTIFIER
-#define TARGET_BOARD_IDENTIFIER "RA8E1"
-#endif
-
-#ifndef USBD_PRODUCT_STRING
+#define TARGET_BOARD_IDENTIFIER "RA8E"
 #define USBD_PRODUCT_STRING     "Betaflight RA8E1"
-#endif
 
-// RA8E1 FPB Board Configuration
-#define TARGET_BOARD_FPB_RA8E1
+/* RA8E1 MCU Configuration */
+#define TARGET_MCU              R7FA8E1AF
+#define TARGET_MCU_FAMILY       RA8E1
 
-// MCU Configuration
-#define MCU_TYPE_RA8E1
-#define BSP_MCU_GROUP_RA8E1     1
-#define BSP_CFG_MCU_PART_SERIES 8
+/* Memory Configuration */
+#define FLASH_SIZE              512
+#define RAM_SIZE                128
+#define DATA_FLASH_SIZE         8
 
-// Clock Configuration
-#define SYSTEM_CLOCK_FREQ       200000000  // 200MHz
-#define PERIPHERAL_CLOCK_FREQ   100000000  // 100MHz
+/* Clock Configuration */
+#define HSE_VALUE               24000000  /* 24MHz external crystal */
 
-// Memory Configuration
-#define FLASH_SIZE              512        // 512KB Flash
-#define RAM_SIZE                128        // 128KB RAM
-#define FLASH_PAGE_SIZE         ((uint32_t)0x4000) // 16K sectors
+/* LED Configuration */
+#define LED0_PIN                BSP_IO_PORT_01_PIN_06  /* P106 */
+#define LED1_PIN                BSP_IO_PORT_01_PIN_07  /* P107 */
+#define LED2_PIN                BSP_IO_PORT_01_PIN_08  /* P108 */
 
-// GPIO Port Configuration
-#define TARGET_IO_PORTA 0xffff
-#define TARGET_IO_PORTB 0xffff
-#define TARGET_IO_PORTC 0xffff
-#define TARGET_IO_PORTD 0xffff
-#define TARGET_IO_PORTE 0xffff
-#define TARGET_IO_PORTF 0xffff
+#define LED0                    LED0_PIN
+#define LED1                    LED1_PIN
+#define LED2                    LED2_PIN
 
-// SPI Configuration for GY-91 (MPU9255 + BMP280)
+/* Button Configuration */
+#define USE_BUTTONS
+#define BUTTON_A_PIN            BSP_IO_PORT_01_PIN_00  /* P100 */
+#define BUTTON_B_PIN            BSP_IO_PORT_01_PIN_01  /* P101 */
+#define BUTTON_A_INVERTED
+#define BUTTON_B_INVERTED
+
+/* Beeper Configuration */
+#define USE_BEEPER
+#define BEEPER_PIN              BSP_IO_PORT_01_PIN_05  /* P105 */
+#define BEEPER_INVERTED
+
+/* SPI Configuration */
 #define USE_SPI
-#define USE_SPI_DEVICE_1
-#define SPI_FULL_RECONFIGURABILITY
+#define USE_SPI_DEVICE_0
 
-// SPI0 Pin Configuration (Pmod 1)
-#define SPI1_SCK_PIN            BSP_IO_PORT_06_PIN_11  // P611
-#define SPI1_MISO_PIN           BSP_IO_PORT_06_PIN_10  // P610
-#define SPI1_MOSI_PIN           BSP_IO_PORT_06_PIN_09  // P609
+#define SPI0_SCK_PIN            BSP_IO_PORT_04_PIN_12  /* P412 */
+#define SPI0_MISO_PIN           BSP_IO_PORT_04_PIN_11  /* P411 */
+#define SPI0_MOSI_PIN           BSP_IO_PORT_04_PIN_10  /* P410 */
 
-// Chip Select Pins for GY-91
-#define MPU9255_CS_PIN          BSP_IO_PORT_06_PIN_12  // P612 (SS1)
-#define BMP280_CS_PIN           BSP_IO_PORT_06_PIN_14  // P614 (SS2)
-
-// IMU Configuration (MPU9255)
+/* IMU Configuration (MPU9250 on SPI0) */
 #define USE_GYRO
-#define USE_GYRO_MPU9250
+#define USE_GYRO_SPI_MPU9250
 #define USE_ACC
-#define USE_ACC_MPU9250
+#define USE_ACC_SPI_MPU9250
+
+#define GYRO_1_CS_PIN           BSP_IO_PORT_06_PIN_12  /* P612 - IMU CS */
+#define GYRO_1_SPI_INSTANCE     SPI0
+#define GYRO_1_ALIGN            CW0_DEG
+
+#define ACC_1_CS_PIN            BSP_IO_PORT_06_PIN_12  /* P612 - IMU CS */
+#define ACC_1_SPI_INSTANCE      SPI0
+#define ACC_1_ALIGN             CW0_DEG
+
+/* Magnetometer Configuration (AK8963 on MPU9250) */
 #define USE_MAG
-#define USE_MAG_MPU9250
+#define USE_MAG_AK8963
+#define MAG_1_ALIGN             CW0_DEG
 
-#define GYRO_1_SPI_INSTANCE     SPI1
-#define GYRO_1_CS_PIN           MPU9255_CS_PIN
-#define GYRO_1_EXTI_PIN         BSP_IO_PORT_00_PIN_06  // P006 (IRQ11) - Optional
-
-// Barometer Configuration (BMP280)
+/* Barometer Configuration (BMP280 on SPI0) */
 #define USE_BARO
-#define USE_BARO_BMP280
+#define USE_BARO_SPI_BMP280
+#define BARO_CS_PIN             BSP_IO_PORT_06_PIN_14  /* P614 - Barometer CS */
+#define BARO_SPI_INSTANCE       SPI0
 
-#define BARO_SPI_INSTANCE       SPI1
-#define BARO_CS_PIN             BMP280_CS_PIN
+/* UART Configuration */
+#define USE_UART9
+#define UART9_RX_PIN            BSP_IO_PORT_01_PIN_09  /* P109 */
+#define UART9_TX_PIN            BSP_IO_PORT_01_PIN_10  /* P110 */
 
-// UART Configuration for Receiver
-#define USE_VCP
-#define USE_UART1
-#define USE_UART2
-#define USE_UART3
-#define USE_UART4
-
-// Primary receiver UART (J18-1 RXD3 or Pmod2 P802 RXD2)
-#define SERIALRX_UART           SERIAL_PORT_USART3
+/* Serial RX Configuration */
+#define USE_SERIALRX
+#define SERIALRX_UART           SERIAL_PORT_USART9
 #define SERIALRX_PROVIDER       SERIALRX_SBUS
 
-// UART3 Pin Configuration (J18-1)
-#define UART3_RX_PIN            BSP_IO_PORT_03_PIN_02  // P302 (RXD3)
-#define UART3_TX_PIN            BSP_IO_PORT_03_PIN_01  // P301 (TXD3)
-
-// Alternative UART2 Pin Configuration (Pmod2)
-#define UART2_RX_PIN            BSP_IO_PORT_08_PIN_02  // P802 (RXD2)
-#define UART2_TX_PIN            BSP_IO_PORT_08_PIN_01  // P801 (TXD2)
-
-// PWM Configuration for ESC Outputs
+/* PWM Output Configuration */
 #define USE_PWM_OUTPUT
 #define USE_DSHOT
-#define USE_ESC_SENSOR
 
-// PWM Output Pins (Arduino-style pins)
-#define PWM1_PIN                BSP_IO_PORT_04_PIN_15  // P415 (D3)
-#define PWM2_PIN                BSP_IO_PORT_01_PIN_14  // P114 (D5)
-#define PWM3_PIN                BSP_IO_PORT_01_PIN_13  // P113 (D6)
-#define PWM4_PIN                BSP_IO_PORT_01_PIN_12  // P112 (D9)
+#define MOTOR1_PIN              BSP_IO_PORT_05_PIN_04  /* P504 - GPT4A */
+#define MOTOR2_PIN              BSP_IO_PORT_05_PIN_05  /* P505 - GPT4B */
+#define MOTOR3_PIN              BSP_IO_PORT_05_PIN_06  /* P506 - GPT5A */
+#define MOTOR4_PIN              BSP_IO_PORT_05_PIN_07  /* P507 - GPT5B */
+#define MOTOR5_PIN              BSP_IO_PORT_05_PIN_08  /* P508 - GPT6A */
+#define MOTOR6_PIN              BSP_IO_PORT_05_PIN_09  /* P509 - GPT6B */
 
-// Timer Configuration for PWM
+/* ADC Configuration */
+#define USE_ADC
+#define ADC_INSTANCE            ADC0
+
+#define VBAT_ADC_PIN            BSP_IO_PORT_00_PIN_00  /* P000/AN000 */
+#define CURRENT_METER_ADC_PIN   BSP_IO_PORT_00_PIN_01  /* P001/AN001 */
+#define RSSI_ADC_PIN            BSP_IO_PORT_00_PIN_02  /* P002/AN002 */
+#define EXTERNAL_ADC_PIN        BSP_IO_PORT_00_PIN_03  /* P003/AN003 */
+
+#define ADC_CHANNEL_1_PIN       VBAT_ADC_PIN
+#define ADC_CHANNEL_2_PIN       CURRENT_METER_ADC_PIN
+#define ADC_CHANNEL_3_PIN       RSSI_ADC_PIN
+#define ADC_CHANNEL_4_PIN       EXTERNAL_ADC_PIN
+
+#define VBAT_ADC_CHANNEL        ADC_CHN_1
+#define CURRENT_METER_ADC_CHANNEL ADC_CHN_2
+#define RSSI_ADC_CHANNEL        ADC_CHN_3
+
+/* I2C Configuration */
+#define USE_I2C
+#define USE_I2C_DEVICE_0
+#define I2C0_SCL_PIN            BSP_IO_PORT_04_PIN_00  /* P400 */
+#define I2C0_SDA_PIN            BSP_IO_PORT_04_PIN_01  /* P401 */
+
+/* USB Configuration */
+#define USE_VCP
+#define USE_USB_DETECT
+#define USB_DETECT_PIN          BSP_IO_PORT_01_PIN_11  /* P111 - USB_DM */
+
+/* Flash Configuration */
+#define USE_FLASH
+#define USE_FLASH_CHIP
+#define FLASH_CS_PIN            BSP_IO_PORT_06_PIN_15  /* P615 - External flash CS if available */
+#define FLASH_SPI_INSTANCE      SPI0
+
+/* Default Configuration */
+#define DEFAULT_VOLTAGE_METER_SOURCE    VOLTAGE_METER_ADC
+#define DEFAULT_CURRENT_METER_SOURCE    CURRENT_METER_ADC
+
+#define DEFAULT_RX_FEATURE      FEATURE_RX_SERIAL
+#define DEFAULT_FEATURES        (FEATURE_OSD | FEATURE_TELEMETRY | FEATURE_AIRMODE | FEATURE_RX_SERIAL)
+
+/* Timer Configuration */
 #define USE_TIMER
 #define USE_TIMER_MGMT
 
-// GPT Timer assignments for PWM
-#define PWM1_TIMER              GPT0
-#define PWM2_TIMER              GPT1
-#define PWM3_TIMER              GPT2
-#define PWM4_TIMER              GPT3
+/* DMA Configuration */
+#define USE_DMA
+#define USE_DMA_SPEC
 
-// I2C Configuration (if needed for future expansion)
-#define USE_I2C
-#define USE_I2C_DEVICE_1
-#define USE_I2C_DEVICE_2
-#define I2C_FULL_RECONFIGURABILITY
+/* Target IO Ports */
+#define TARGET_IO_PORTA         0xffff
+#define TARGET_IO_PORTB         0xffff
+#define TARGET_IO_PORTC         0xffff
+#define TARGET_IO_PORTD         0xffff
+#define TARGET_IO_PORTE         0xffff
+#define TARGET_IO_PORTF         0xffff
 
-// ADC Configuration
-#define USE_ADC
-#define ADC_INSTANCE            ADC0
-#define ADC_CHANNEL_COUNT       4
+/* Used pins */
+#define USED_TIMERS             (TIM_N(4) | TIM_N(5) | TIM_N(6))
 
-// Battery monitoring (if available)
-#define VBAT_ADC_PIN            BSP_IO_PORT_00_PIN_00  // P000 (AN000)
-#define CURRENT_METER_ADC_PIN   BSP_IO_PORT_00_PIN_01  // P001 (AN001)
-
-// External Interrupt Configuration
-#define USE_EXTI
-
-// Beeper Configuration (if available)
-#define USE_BEEPER
-#define BEEPER_PIN              BSP_IO_PORT_01_PIN_06  // P106
-
-// LED Configuration
-#define USE_LED_STRIP
-#define LED_STRIP_PIN           BSP_IO_PORT_01_PIN_05  // P105
-
-// USB Configuration
-#define USE_USB_DETECT
-#define USB_DETECT_PIN          BSP_IO_PORT_01_PIN_08  // P108
-
-// Flash Configuration for Settings Storage
-#define USE_FLASH_CHIP
-#define USE_FLASH_M25P16
-#define FLASH_CS_PIN            BSP_IO_PORT_01_PIN_03  // P103
-#define FLASH_SPI_INSTANCE      SPI1
-
-// On-chip Flash for Configuration Storage
-#define USE_FLASH_W25N01G       // Use on-chip flash instead
-#define CONFIG_IN_FLASH
-#define EEPROM_SIZE             8192
-
-// Board-specific features
-#define DEFAULT_FEATURES        (FEATURE_OSD | FEATURE_TELEMETRY | FEATURE_AIRMODE | FEATURE_RX_SERIAL)
-#define DEFAULT_RX_FEATURE      FEATURE_RX_SERIAL
-#define SERIALRX_PROVIDER       SERIALRX_SBUS
-
-// Disable features not available on this target
-#undef USE_SDCARD
-#undef USE_CAMERA_CONTROL
-
-// Target-specific optimizations
-#define FAST_CODE_PREF          // RA8E1 has sufficient memory for fast code
-
-// Debug Configuration
-#ifdef DEBUG
-#define USE_DEBUG_PIN
-#define DEBUG_PIN               BSP_IO_PORT_01_PIN_07  // P107
-#endif
-
-// Board initialization function
-void targetBoardInit(void);
-void targetBoardInitComplete(void);
+/* Board specific features */
+#define ENABLE_BLACKBOX_LOGGING_ON_SPIFLASH_BY_DEFAULT

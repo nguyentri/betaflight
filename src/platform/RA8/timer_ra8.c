@@ -23,306 +23,217 @@
 
 #include "platform.h"
 
+#ifdef USE_TIMER
+
+#include "drivers/io.h"
 #include "drivers/timer.h"
 #include "drivers/timer_impl.h"
-#include "drivers/io.h"
 
 // FSP includes
 #include "hal_data.h"
-#include "r_gpt.h"
 
-// Timer instances
-static timer_ctrl_t g_timer_ctrl[USABLE_TIMER_CHANNEL_COUNT];
-static bool timerInitialized[USABLE_TIMER_CHANNEL_COUNT] = {false};
-
-// Timer configuration template
-static const timer_cfg_t g_timer_cfg_template = {
-    .mode                = TIMER_MODE_PERIODIC,
-    .period_counts       = 0xFFFFFFFF,
-    .source_div          = TIMER_SOURCE_DIV_1,
-    .channel             = 0,
-    .p_callback          = NULL,
-    .p_context           = NULL,
-    .p_extend            = NULL,
-    .cycle_end_ipl       = (12),
-    .cycle_end_irq       = FSP_INVALID_VECTOR,
-};
-
-// Timer resource mapping
+// Timer definitions for RA8E1
 typedef struct {
-    uint8_t timerId;
+    gpt_instance_t *instance;
     uint8_t channel;
     ioTag_t ioTag;
-} timerChannelMap_t;
+} timerHardware_t;
 
-// Timer channel mapping for RA8E1
-static const timerChannelMap_t timerChannelMap[] = {
-    // GPT0 channels
-    { TIM_GPT0, 0, IO_TAG(GPIOA, 0) },  // GPT0 CH0 - PA0
-    { TIM_GPT0, 1, IO_TAG(GPIOA, 1) },  // GPT0 CH1 - PA1
+// Timer hardware mapping
+static const timerHardware_t timerHardware[] = {
+    // GPT4 - Motors 1 & 2
+    { .instance = &g_timer4, .channel = 0, .ioTag = IO_TAG(MOTOR1_PIN) },  // GPT4A
+    { .instance = &g_timer4, .channel = 1, .ioTag = IO_TAG(MOTOR2_PIN) },  // GPT4B
     
-    // GPT1 channels  
-    { TIM_GPT1, 0, IO_TAG(GPIOA, 2) },  // GPT1 CH0 - PA2
-    { TIM_GPT1, 1, IO_TAG(GPIOA, 3) },  // GPT1 CH1 - PA3
+    // GPT5 - Motors 3 & 4
+    { .instance = &g_timer5, .channel = 0, .ioTag = IO_TAG(MOTOR3_PIN) },  // GPT5A
+    { .instance = &g_timer5, .channel = 1, .ioTag = IO_TAG(MOTOR4_PIN) },  // GPT5B
     
-    // GPT2 channels
-    { TIM_GPT2, 0, IO_TAG(GPIOA, 4) },  // GPT2 CH0 - PA4
-    { TIM_GPT2, 1, IO_TAG(GPIOA, 5) },  // GPT2 CH1 - PA5
-    
-    // GPT3 channels
-    { TIM_GPT3, 0, IO_TAG(GPIOA, 6) },  // GPT3 CH0 - PA6
-    { TIM_GPT3, 1, IO_TAG(GPIOA, 7) },  // GPT3 CH1 - PA7
+    // GPT6 - Motors 5 & 6
+    { .instance = &g_timer6, .channel = 0, .ioTag = IO_TAG(MOTOR5_PIN) },  // GPT6A
+    { .instance = &g_timer6, .channel = 1, .ioTag = IO_TAG(MOTOR6_PIN) },  // GPT6B
 };
 
-const timerHardware_t timerHardware[USABLE_TIMER_CHANNEL_COUNT] = {
-    DEF_TIM(TIM_GPT0, CH_1, PA0,  TIM_USE_PWM | TIM_USE_PPM,   0, 0),
-    DEF_TIM(TIM_GPT0, CH_2, PA1,  TIM_USE_PWM,                0, 0),
-    DEF_TIM(TIM_GPT1, CH_1, PA2,  TIM_USE_PWM,                0, 0),
-    DEF_TIM(TIM_GPT1, CH_2, PA3,  TIM_USE_PWM,                0, 0),
-    DEF_TIM(TIM_GPT2, CH_1, PA4,  TIM_USE_PWM,                0, 0),
-    DEF_TIM(TIM_GPT2, CH_2, PA5,  TIM_USE_PWM,                0, 0),
-    DEF_TIM(TIM_GPT3, CH_1, PA6,  TIM_USE_PWM,                0, 0),
-    DEF_TIM(TIM_GPT3, CH_2, PA7,  TIM_USE_PWM,                0, 0),
-};
+#define TIMER_HARDWARE_COUNT (sizeof(timerHardware) / sizeof(timerHardware[0]))
+
+static bool timersInitialized = false;
 
 void timerInit(void)
 {
-    // Initialize all timer channels
-    for (int i = 0; i < USABLE_TIMER_CHANNEL_COUNT; i++) {
-        timerInitialized[i] = false;
+    if (timersInitialized) {
+        return;
     }
+
+    // Initialize all GPT timers
+    fsp_err_t err;
+    
+    // Initialize GPT4
+    err = g_timer4.p_api->open(g_timer4.p_ctrl, g_timer4.p_cfg);
+    if (err != FSP_SUCCESS) {
+        // Handle error
+        return;
+    }
+    
+    // Initialize GPT5
+    err = g_timer5.p_api->open(g_timer5.p_ctrl, g_timer5.p_cfg);
+    if (err != FSP_SUCCESS) {
+        // Handle error
+        return;
+    }
+    
+    // Initialize GPT6
+    err = g_timer6.p_api->open(g_timer6.p_ctrl, g_timer6.p_cfg);
+    if (err != FSP_SUCCESS) {
+        // Handle error
+        return;
+    }
+
+    timersInitialized = true;
 }
 
 const timerHardware_t *timerGetByTag(ioTag_t ioTag)
 {
-    for (int i = 0; i < USABLE_TIMER_CHANNEL_COUNT; i++) {
-        if (timerHardware[i].tag == ioTag) {
+    for (unsigned i = 0; i < TIMER_HARDWARE_COUNT; i++) {
+        if (timerHardware[i].ioTag == ioTag) {
             return &timerHardware[i];
         }
     }
     return NULL;
 }
 
-timerOvrHandlerRec_t *timerCaptureInit(const timerHardware_t *timHw, uint16_t period, timerCaptureCallbackPtr callback, void *callbackParam)
+void timerStart(const timerHardware_t *timer)
 {
-    UNUSED(timHw);
-    UNUSED(period);
-    UNUSED(callback);
-    UNUSED(callbackParam);
+    if (!timer || !timer->instance) {
+        return;
+    }
     
-    // Simplified implementation - would need proper capture setup
-    return NULL;
+    timer->instance->p_api->start(timer->instance->p_ctrl);
 }
 
-void timerCaptureCompareInit(const timerHardware_t *timHw, uint16_t period, uint32_t hz, timerCaptureCallbackPtr callback, void *callbackParam)
+void timerStop(const timerHardware_t *timer)
 {
-    UNUSED(timHw);
-    UNUSED(period);
-    UNUSED(hz);
-    UNUSED(callback);
-    UNUSED(callbackParam);
+    if (!timer || !timer->instance) {
+        return;
+    }
     
-    // Simplified implementation
+    timer->instance->p_api->stop(timer->instance->p_ctrl);
 }
 
-void timerChInit(const timerHardware_t *timHw, channelType_t type, int irqPriority, uint8_t irq)
+void timerConfigBase(const timerHardware_t *timer, uint16_t period, uint32_t hz)
 {
-    UNUSED(irqPriority);
-    UNUSED(irq);
-    
-    if (!timHw) {
+    if (!timer || !timer->instance) {
         return;
     }
     
-    uint8_t timerIndex = timHw - timerHardware;
-    if (timerIndex >= USABLE_TIMER_CHANNEL_COUNT) {
-        return;
-    }
+    // Configure timer period and frequency
+    timer_cfg_t cfg = *(timer->instance->p_cfg);
+    cfg.period_counts = period;
     
-    if (timerInitialized[timerIndex]) {
-        return;
-    }
-    
-    // Configure timer based on type
-    timer_cfg_t cfg = g_timer_cfg_template;
-    cfg.channel = timHw->channel;
-    
-    switch (type) {
-    case TYPE_PWM:
-        cfg.mode = TIMER_MODE_PWM;
-        break;
-    case TYPE_PPM:
-        cfg.mode = TIMER_MODE_ONE_SHOT;
-        break;
-    default:
-        cfg.mode = TIMER_MODE_PERIODIC;
-        break;
-    }
-    
-    // Open timer
-    fsp_err_t err = R_GPT_Open(&g_timer_ctrl[timerIndex], &cfg);
-    if (err == FSP_SUCCESS) {
-        timerInitialized[timerIndex] = true;
-    }
+    // Reconfigure timer
+    timer->instance->p_api->close(timer->instance->p_ctrl);
+    timer->instance->p_api->open(timer->instance->p_ctrl, &cfg);
 }
 
-void timerChCCHandlerInit(timerCCHandlerRec_t *self, timerCCHandlerCallback *fn)
+void timerPWMConfigChannel(const timerHardware_t *timer, uint8_t channel, bool inverted, uint16_t value)
 {
-    self->fn = fn;
+    if (!timer || !timer->instance) {
+        return;
+    }
+    
+    // Set PWM duty cycle
+    timer->instance->p_api->dutyCycleSet(timer->instance->p_ctrl, value, 
+                                        (channel == 0) ? GPT_IO_PIN_GTIOCA : GPT_IO_PIN_GTIOCB);
 }
 
-void timerChOvrHandlerInit(timerOvrHandlerRec_t *self, timerOvrHandlerCallback *fn)
+void timerPWMStart(const timerHardware_t *timer)
 {
-    self->fn = fn;
+    timerStart(timer);
 }
 
-void timerConfigBase(const timerHardware_t *timHw, uint16_t period, uint32_t hz)
+void timerPWMStop(const timerHardware_t *timer)
 {
-    if (!timHw) {
-        return;
-    }
-    
-    uint8_t timerIndex = timHw - timerHardware;
-    if (timerIndex >= USABLE_TIMER_CHANNEL_COUNT || !timerInitialized[timerIndex]) {
-        return;
-    }
-    
-    // Calculate period counts based on frequency
-    uint32_t period_counts = (SystemCoreClock / hz) - 1;
-    
-    // Set period
-    R_GPT_PeriodSet(&g_timer_ctrl[timerIndex], period_counts);
+    timerStop(timer);
 }
 
-void timerStart(const timerHardware_t *timHw)
+uint16_t timerGetPeriod(const timerHardware_t *timer)
 {
-    if (!timHw) {
-        return;
-    }
-    
-    uint8_t timerIndex = timHw - timerHardware;
-    if (timerIndex >= USABLE_TIMER_CHANNEL_COUNT || !timerInitialized[timerIndex]) {
-        return;
-    }
-    
-    R_GPT_Start(&g_timer_ctrl[timerIndex]);
-}
-
-void timerStop(const timerHardware_t *timHw)
-{
-    if (!timHw) {
-        return;
-    }
-    
-    uint8_t timerIndex = timHw - timerHardware;
-    if (timerIndex >= USABLE_TIMER_CHANNEL_COUNT || !timerInitialized[timerIndex]) {
-        return;
-    }
-    
-    R_GPT_Stop(&g_timer_ctrl[timerIndex]);
-}
-
-uint16_t timerGetPeriod(const timerHardware_t *timHw)
-{
-    if (!timHw) {
-        return 0;
-    }
-    
-    uint8_t timerIndex = timHw - timerHardware;
-    if (timerIndex >= USABLE_TIMER_CHANNEL_COUNT || !timerInitialized[timerIndex]) {
+    if (!timer || !timer->instance) {
         return 0;
     }
     
     timer_info_t info;
-    R_GPT_InfoGet(&g_timer_ctrl[timerIndex], &info);
+    timer->instance->p_api->infoGet(timer->instance->p_ctrl, &info);
     return (uint16_t)info.period_counts;
 }
 
-void timerPWMConfigChannel(const timerHardware_t *timHw, uint8_t reference, uint16_t value)
+void timerSetPeriod(const timerHardware_t *timer, uint16_t period)
 {
-    if (!timHw) {
+    if (!timer || !timer->instance) {
         return;
     }
     
-    uint8_t timerIndex = timHw - timerHardware;
-    if (timerIndex >= USABLE_TIMER_CHANNEL_COUNT || !timerInitialized[timerIndex]) {
-        return;
-    }
-    
-    // Set duty cycle
-    R_GPT_DutyCycleSet(&g_timer_ctrl[timerIndex], value, GPT_IO_PIN_GTIOCA);
+    timer->instance->p_api->periodSet(timer->instance->p_ctrl, period);
 }
 
-uint16_t timerGetValue(const timerHardware_t *timHw)
+uint32_t timerClock(TIM_TypeDef *tim)
 {
-    if (!timHw) {
-        return 0;
-    }
-    
-    uint8_t timerIndex = timHw - timerHardware;
-    if (timerIndex >= USABLE_TIMER_CHANNEL_COUNT || !timerInitialized[timerIndex]) {
-        return 0;
-    }
-    
-    timer_status_t status;
-    R_GPT_StatusGet(&g_timer_ctrl[timerIndex], &status);
-    return (uint16_t)status.counter;
+    UNUSED(tim);
+    // Return system clock frequency
+    return SystemCoreClock;
 }
 
-void timerSetValue(const timerHardware_t *timHw, uint16_t value)
+// DShot support functions
+void timerDMASafetySwitch(bool enable)
 {
-    if (!timHw) {
-        return;
-    }
-    
-    uint8_t timerIndex = timHw - timerHardware;
-    if (timerIndex >= USABLE_TIMER_CHANNEL_COUNT || !timerInitialized[timerIndex]) {
-        return;
-    }
-    
-    // Reset counter to specific value
-    R_GPT_Reset(&g_timer_ctrl[timerIndex]);
-    // Note: FSP GPT doesn't directly support setting counter value
-    // This would need additional implementation
+    UNUSED(enable);
+    // DMA safety implementation for DShot
 }
 
-// System tick timer (usually SysTick)
-void systemInit(void)
+bool timerPWMConfigChannelDMA(const timerHardware_t *timer, uint8_t channel)
 {
-    // System initialization is handled in system_ra8e1.c
+    UNUSED(timer);
+    UNUSED(channel);
+    // DMA configuration for DShot
+    return false; // Not implemented yet
 }
 
-uint32_t micros(void)
+void timerDMACallback(dmaChannelDescriptor_t *descriptor)
 {
-    // Use system tick counter for microsecond timing
-    // This is a simplified implementation
-    static uint32_t lastTick = 0;
-    static uint32_t microsOffset = 0;
-    
-    uint32_t currentTick = HAL_GetTick();
-    if (currentTick != lastTick) {
-        microsOffset += (currentTick - lastTick) * 1000;
-        lastTick = currentTick;
-    }
-    
-    return microsOffset;
+    UNUSED(descriptor);
+    // DMA callback for DShot
 }
 
-uint32_t millis(void)
+// Timer utility functions
+uint32_t timerGetBaseClock(const timerHardware_t *timer)
 {
-    return HAL_GetTick();
+    UNUSED(timer);
+    return SystemCoreClock;
 }
 
-void delay(uint32_t ms)
+void timerReconfigureTimeBase(const timerHardware_t *timer, uint16_t period, uint32_t hz)
 {
-    HAL_Delay(ms);
+    timerConfigBase(timer, period, hz);
 }
 
-void delayMicroseconds(uint32_t us)
+// Motor timer functions
+const timerHardware_t *timerGetConfiguredByTag(ioTag_t ioTag)
 {
-    // Simple delay loop - not very accurate
-    volatile uint32_t count = us * (SystemCoreClock / 1000000) / 4;
-    while (count--) {
-        __NOP();
+    return timerGetByTag(ioTag);
+}
+
+const timerHardware_t *timerAllocate(ioTag_t ioTag, resourceOwner_e owner, uint8_t resourceIndex)
+{
+    UNUSED(owner);
+    UNUSED(resourceIndex);
+    return timerGetByTag(ioTag);
+}
+
+void timerReleaseAll(void)
+{
+    // Release all timers
+    for (unsigned i = 0; i < TIMER_HARDWARE_COUNT; i++) {
+        timerStop(&timerHardware[i]);
     }
 }
+
+#endif // USE_TIMER

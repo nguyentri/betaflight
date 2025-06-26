@@ -28,15 +28,27 @@ _estack = ORIGIN(RAM) + LENGTH(RAM);    /* end of RAM */
 _Min_Heap_Size = 0x200;      /* required amount of heap  */
 _Min_Stack_Size = 0x400;     /* required amount of stack */
 
-/* Specify the memory areas */
+/* Specify the memory areas - Updated for RA8E1 */
 MEMORY
 {
+  /* Code Flash: 512KB starting at 0x00000000 */
   FLASH (rx)      : ORIGIN = 0x00000000, LENGTH = 512K
+  
+  /* On-chip SRAM: 128KB starting at 0x20000000 */
   RAM (xrw)       : ORIGIN = 0x20000000, LENGTH = 128K
+  
+  /* Data Flash: 8KB starting at 0x40100000 */
   DATA_FLASH (rx) : ORIGIN = 0x40100000, LENGTH = 8K
+  
+  /* Option Setting Memory */
   OPTION_SETTING (r) : ORIGIN = 0x0100A100, LENGTH = 32
   OPTION_SETTING_S (r) : ORIGIN = 0x0100A200, LENGTH = 32
+  
+  /* ID Code */
   ID_CODE (rx)    : ORIGIN = 0x01010018, LENGTH = 32
+  
+  /* Vector table in RAM for runtime modification */
+  RAM_VECTOR (xrw) : ORIGIN = 0x20000000, LENGTH = 1K
 }
 
 /* Define output sections */
@@ -89,6 +101,7 @@ SECTIONS
     KEEP (*(.preinit_array*))
     PROVIDE_HIDDEN (__preinit_array_end = .);
   } >FLASH
+  
   .init_array :
   {
     PROVIDE_HIDDEN (__init_array_start = .);
@@ -96,6 +109,7 @@ SECTIONS
     KEEP (*(.init_array*))
     PROVIDE_HIDDEN (__init_array_end = .);
   } >FLASH
+  
   .fini_array :
   {
     PROVIDE_HIDDEN (__fini_array_start = .);
@@ -119,7 +133,6 @@ SECTIONS
     _edata = .;        /* define a global symbol at data end */
   } >RAM AT> FLASH
 
-  
   /* Uninitialized data section */
   . = ALIGN(4);
   .bss :
@@ -147,7 +160,15 @@ SECTIONS
     . = ALIGN(8);
   } >RAM
 
-  /* OPTION_SETTING section for RA8E1 configuration */
+  /* Data Flash section for configuration storage */
+  .data_flash :
+  {
+    . = ALIGN(4);
+    KEEP(*(.data_flash))
+    . = ALIGN(4);
+  } >DATA_FLASH
+
+  /* Option Setting section */
   .option_setting :
   {
     KEEP(*(.option_setting))
@@ -158,7 +179,7 @@ SECTIONS
     KEEP(*(.option_setting_s))
   } >OPTION_SETTING_S
 
-  /* ID_CODE section */
+  /* ID Code section */
   .id_code :
   {
     KEEP(*(.id_code))

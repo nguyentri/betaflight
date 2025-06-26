@@ -75,16 +75,16 @@ dmaChannelDescriptor_t *dmaGetChannelByTag(dmaTag_t tag)
 {
     // Convert tag to channel index
     uint8_t channel = DMA_TAG_GET_CHANNEL(tag);
-    
+
     if (channel >= DMA_MAX_CHANNELS) {
         return NULL;
     }
-    
+
     // Return a descriptor for the channel
     static dmaChannelDescriptor_t descriptors[DMA_MAX_CHANNELS];
     descriptors[channel].tag = tag;
     descriptors[channel].channel = channel;
-    
+
     return &descriptors[channel];
 }
 
@@ -93,21 +93,21 @@ bool dmaAllocate(dmaChannelDescriptor_t *descriptor, dmaResource_t *resource, dm
     if (!descriptor || descriptor->channel >= DMA_MAX_CHANNELS) {
         return false;
     }
-    
+
     uint8_t channel = descriptor->channel;
-    
+
     if (dmaChannelUsed[channel]) {
         return false; // Channel already in use
     }
-    
+
     dmaChannelUsed[channel] = true;
     dmaCallbacks[channel] = callback;
-    
+
     if (resource) {
         resource->channel = channel;
         resource->descriptor = descriptor;
     }
-    
+
     return true;
 }
 
@@ -116,10 +116,10 @@ void dmaSetHandler(dmaChannelDescriptor_t *descriptor, dmaCallbackHandlerFuncPtr
     if (!descriptor || descriptor->channel >= DMA_MAX_CHANNELS) {
         return;
     }
-    
+
     uint8_t channel = descriptor->channel;
     dmaCallbacks[channel] = callback;
-    
+
     // Set interrupt priority
     NVIC_SetPriority(DMAC0_INT_IRQn + channel, priority);
 }
@@ -129,7 +129,7 @@ void dmaEnable(dmaChannelDescriptor_t *descriptor)
     if (!descriptor || descriptor->channel >= DMA_MAX_CHANNELS) {
         return;
     }
-    
+
     uint8_t channel = descriptor->channel;
     R_DMAC_Enable(&g_dmac_ctrl[channel]);
 }
@@ -139,7 +139,7 @@ void dmaDisable(dmaChannelDescriptor_t *descriptor)
     if (!descriptor || descriptor->channel >= DMA_MAX_CHANNELS) {
         return;
     }
-    
+
     uint8_t channel = descriptor->channel;
     R_DMAC_Disable(&g_dmac_ctrl[channel]);
 }
@@ -149,12 +149,12 @@ bool dmaConfigureTransfer(dmaChannelDescriptor_t *descriptor, const void *src, v
     if (!descriptor || descriptor->channel >= DMA_MAX_CHANNELS) {
         return false;
     }
-    
+
     uint8_t channel = descriptor->channel;
-    
+
     // Configure DMA transfer info
     dmac_info_t transfer_info = {0};
-    
+
     switch (direction) {
     case DMA_PERIPH_TO_MEMORY:
         transfer_info.transfer_settings_word_b.src_addr_mode = DMAC_ADDRESS_MODE_FIXED;
@@ -171,22 +171,22 @@ bool dmaConfigureTransfer(dmaChannelDescriptor_t *descriptor, const void *src, v
     default:
         return false;
     }
-    
+
     transfer_info.transfer_settings_word_b.src_size = DMAC_TRANSFER_SIZE_1_BYTE;
     transfer_info.transfer_settings_word_b.dest_size = DMAC_TRANSFER_SIZE_1_BYTE;
     transfer_info.transfer_settings_word_b.mode = DMAC_MODE_NORMAL;
-    
+
     transfer_info.p_src = (void*)src;
     transfer_info.p_dest = dst;
     transfer_info.length = len;
-    
+
     // Configure DMA channel
     dmac_cfg_t cfg = g_dmac_cfg_template;
     cfg.channel = channel;
     cfg.p_info = &transfer_info;
     cfg.p_callback = (dmaCallbacks[channel] != NULL) ? dmac_callback : NULL;
     cfg.p_context = (void*)(uintptr_t)channel;
-    
+
     fsp_err_t err = R_DMAC_Open(&g_dmac_ctrl[channel], &cfg);
     return (err == FSP_SUCCESS);
 }
@@ -196,7 +196,7 @@ void dmaStartTransfer(dmaChannelDescriptor_t *descriptor)
     if (!descriptor || descriptor->channel >= DMA_MAX_CHANNELS) {
         return;
     }
-    
+
     uint8_t channel = descriptor->channel;
     R_DMAC_SoftwareStart(&g_dmac_ctrl[channel], DMAC_START_TRIGGER_SOFTWARE);
 }
@@ -206,7 +206,7 @@ void dmaStopTransfer(dmaChannelDescriptor_t *descriptor)
     if (!descriptor || descriptor->channel >= DMA_MAX_CHANNELS) {
         return;
     }
-    
+
     uint8_t channel = descriptor->channel;
     R_DMAC_SoftwareStop(&g_dmac_ctrl[channel]);
 }
@@ -216,11 +216,11 @@ bool dmaIsTransferComplete(dmaChannelDescriptor_t *descriptor)
     if (!descriptor || descriptor->channel >= DMA_MAX_CHANNELS) {
         return true;
     }
-    
+
     uint8_t channel = descriptor->channel;
     dmac_stat_t status;
     R_DMAC_StatusGet(&g_dmac_ctrl[channel], &status);
-    
+
     return (status.transfer_end_flag == true);
 }
 
@@ -229,11 +229,11 @@ uint16_t dmaGetRemainingCount(dmaChannelDescriptor_t *descriptor)
     if (!descriptor || descriptor->channel >= DMA_MAX_CHANNELS) {
         return 0;
     }
-    
+
     uint8_t channel = descriptor->channel;
     dmac_stat_t status;
     R_DMAC_StatusGet(&g_dmac_ctrl[channel], &status);
-    
+
     return (uint16_t)status.remaining_length;
 }
 
@@ -242,9 +242,9 @@ void dmaFree(dmaChannelDescriptor_t *descriptor)
     if (!descriptor || descriptor->channel >= DMA_MAX_CHANNELS) {
         return;
     }
-    
+
     uint8_t channel = descriptor->channel;
-    
+
     if (dmaChannelUsed[channel]) {
         R_DMAC_Close(&g_dmac_ctrl[channel]);
         dmaChannelUsed[channel] = false;
@@ -258,9 +258,9 @@ void dmac_callback(dmac_callback_args_t *p_args)
     if (!p_args) {
         return;
     }
-    
+
     uint8_t channel = (uint8_t)(uintptr_t)p_args->p_context;
-    
+
     if (channel < DMA_MAX_CHANNELS && dmaCallbacks[channel]) {
         dmaCallbacks[channel](channel, p_args->event == DMAC_EVENT_TRANSFER_END);
     }
@@ -298,7 +298,7 @@ void dmaSetPriority(dmaChannelDescriptor_t *descriptor, uint8_t priority)
     if (!descriptor || descriptor->channel >= DMA_MAX_CHANNELS) {
         return;
     }
-    
+
     uint8_t channel = descriptor->channel;
     NVIC_SetPriority(DMAC0_INT_IRQn + channel, priority);
 }

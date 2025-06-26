@@ -94,14 +94,14 @@ bool flashIsReady(void)
 bool flashWaitForReady(uint32_t timeoutMillis)
 {
     uint32_t timeout = millis() + timeoutMillis;
-    
+
     while (!flashIsReady()) {
         if (millis() > timeout) {
             return false;
         }
         delay(1);
     }
-    
+
     return true;
 }
 
@@ -116,7 +116,7 @@ bool flashEraseSector(uint32_t address)
         fsp_err_t err = R_FLASH_LP_Erase(&g_flash_ctrl, address, 1);
         return (err == FSP_SUCCESS);
     }
-    
+
     // For code flash, use different erase function
     // This would require different FSP flash driver for code flash
     return false;
@@ -177,7 +177,7 @@ const flashGeometry_t *flashGetGeometry(void)
         .totalSize = FLASH_SIZE * 1024,
         .pageSize = FLASH_PAGE_SIZE,
     };
-    
+
     return &geometry;
 }
 
@@ -187,7 +187,7 @@ bool flashReadConfig(uint8_t *buffer, uint32_t size)
     if (size > DATA_FLASH_SIZE) {
         return false;
     }
-    
+
     flashReadBytes(DATA_FLASH_START, buffer, size);
     return true;
 }
@@ -197,12 +197,12 @@ bool flashWriteConfig(const uint8_t *buffer, uint32_t size)
     if (size > DATA_FLASH_SIZE) {
         return false;
     }
-    
+
     // Erase data flash first
     if (!flashEraseSector(DATA_FLASH_START)) {
         return false;
     }
-    
+
     // Write configuration data
     return flashPageProgram(DATA_FLASH_START, buffer, size);
 }

@@ -61,3 +61,8 @@ eeprom.bin
 #/src/config
 
 src/platform/RA8/fsp
+refs
+*.sh
+config
+README.md
+SUMMARY.md
