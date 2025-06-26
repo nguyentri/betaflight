@@ -3675,18 +3675,12 @@ static void cliDumpGyroRegisters(const char *cmdName, char *cmdline)
     UNUSED(cmdName);
     UNUSED(cmdline);
 
-#ifdef USE_MULTI_GYRO
-    if ((gyroConfig()->gyro_to_use == GYRO_CONFIG_USE_GYRO_1) || (gyroConfig()->gyro_to_use == GYRO_CONFIG_USE_GYRO_BOTH)) {
-        cliPrintLinef("\r\n# Gyro 1");
-        cliPrintGyroRegisters(GYRO_CONFIG_USE_GYRO_1);
+    for (int i = 0; i < GYRO_COUNT; i++) {
+        if (gyroConfig()->gyro_enabled_bitmask & GYRO_MASK(i)) {
+            cliPrintLinef("\r\n# Gyro %d", i + 1);
+            cliPrintGyroRegisters(i);  // assuming this takes a 0-based gyro index
+        }
     }
-    if ((gyroConfig()->gyro_to_use == GYRO_CONFIG_USE_GYRO_2) || (gyroConfig()->gyro_to_use == GYRO_CONFIG_USE_GYRO_BOTH)) {
-        cliPrintLinef("\r\n# Gyro 2");
-        cliPrintGyroRegisters(GYRO_CONFIG_USE_GYRO_2);
-    }
-#else
-    cliPrintGyroRegisters(GYRO_CONFIG_USE_GYRO_1);
-#endif
 }
 #endif
 
@@ -4680,7 +4674,7 @@ static void cliStatus(const char *cmdName, char *cmdline)
 
     cliPrintf("MCU %s Clock=%dMHz", getMcuTypeName(), (SystemCoreClock / 1000000));
 
-#if defined(STM32F4) || defined(STM32G4) || defined(APM32F4)
+#if PLATFORM_TRAIT_CONFIG_HSE
     // Only F4 and G4 is capable of switching between HSE/HSI (for now)
     int sysclkSource = SystemSYSCLKSource();
 
@@ -5402,15 +5396,11 @@ dmaoptEntry_t dmaoptEntryTable[] = {
 #define DMA_OPT_UI_INDEX(i) ((i) + 1)
 #define DMA_OPT_STRING_BUFSIZE 5
 
-#if defined(STM32H7) || defined(STM32G4) || defined(AT32F435)
-#define DMA_CHANREQ_STRING "Request"
-#else
+#if !defined(DMA_CHANREQ_STRING)
 #define DMA_CHANREQ_STRING "Channel"
 #endif
 
-#if defined(STM32F4) || defined(STM32F7) || defined(STM32H7) || defined(APM32F4)
-#define DMA_STCH_STRING    "Stream"
-#else
+#if !defined(DMA_STCH_STRING)
 #define DMA_STCH_STRING    "Channel"
 #endif
 
